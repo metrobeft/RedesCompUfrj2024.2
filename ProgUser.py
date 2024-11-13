@@ -1,264 +1,174 @@
-import tkinter as tk
-from tkinter import messagebox
 import json
 import socket
 import hashlib
 import base64
 from cryptography.fernet import Fernet
 
-# Variáveis globais
-User = ""
-Pass = ""
-IP = ""
-PORTA = 0
-
-# Gera uma chave válida de 32 bytes a partir da string 'qweasd' e converte para Base64
 KEY = base64.urlsafe_b64encode(hashlib.sha256(b'qweasd').digest())
 cipher_suite = Fernet(KEY)
+MESSAGE_LENGTH_HEADER = 10
 
 
-def recv_full_data(sock):
-    """Função auxiliar para receber o comprimento da mensagem seguido da mensagem completa."""
+def response_is_error(response):
+    return 'error' in response
+
+
+def prompt_for_connection():
+    print('Type the server IP:')
+    server_ip = input()
+    print('Type the server port:')
+    server_port = int(input())
+    return server_ip, server_port
+
+
+def prompt_login():
+    print('Type the user:')
+    user = input()
+    print('Type the password:')
+    password = input()
+    return {
+        'User': user,
+        'Pass': password,
+    }
+
+
+def send_login_request(user: dict, server_info: tuple):
+    request = {
+        'Flag': 0,
+        'User': user['User'],
+        'Pass': user['Pass'],
+    }
+    return send_request(request, server_info)
+
+
+def send_creation_request(user: dict, server_info: tuple):
+    request = {
+        'Flag': 3,
+        'User': user['User'],
+        'Pass': user['Pass'],
+    }
+    return send_request(request, server_info)
+
+
+def send_message_list_request(server_info: tuple):
+    request = {
+        'Flag': 2,
+    }
+    return send_request(request, server_info)
+
+
+def send_message_request(recipient: str, message: str,
+                         logged_user: dict, server_info: tuple):
+    request = {
+        'Flag': 1,
+        'User': logged_user['User'],
+        'Destinatario': recipient,
+        'Mensagem': message,
+    }
+    return send_request(request, server_info)
+
+
+def read_message_length(sock: socket.socket) -> int:
+    message_length = int(sock.recv(MESSAGE_LENGTH_HEADER).decode().strip())
+    return message_length
+
+
+def send_request(request: dict, server_info: tuple) -> dict:
     try:
-        message_length = int(sock.recv(10).decode().strip())
-        data = b""
-        while len(data) < message_length:
-            data += sock.recv(1024)
-        return data
-    except ValueError:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.connect(server_info)
+            # send
+            print(f'Sending request: {request}')
+            request_str = json.dumps(request)
+            encrypted_data = cipher_suite.encrypt(request_str.encode())
+            encrypted_length = f"{len(encrypted_data):<{
+                MESSAGE_LENGTH_HEADER}}"
+            # Envia o comprimento seguido dos dados criptografados
+            to_send = encrypted_length.encode() + encrypted_data
+            print(f"Encrypted length: {encrypted_length}")
+            print(f"Encrypted data: {encrypted_data}")
+            print(f"Data to be sent: {to_send}")
+            sock.sendall(encrypted_length.encode() + encrypted_data)
+            # receive
+            message_length = read_message_length(sock)
+            print(f"Message length: {message_length}")
+            data = b""
+            while len(data) < message_length:
+                data += sock.recv(1024)
+            print(f"Encrypted response received: {data}")
+            response = cipher_suite.decrypt(data).decode()
+            response = json.loads(response)
+            print('Response received:', response)
+            if response_is_error(response):
+                print(response)
+                exit(1)
+            return response
+    except ValueError as e:
         # Em caso de erro, retorne a mensagem de erro diretamente
-        return b'{"erro": "Erro ao receber dados"}'
+        print({"error": "Erro ao enviar dados"})
+        raise e
 
 
-def enviar_dados_criptografados(data, socket):
-    """Criptografa e envia o JSON via socket."""
-    # Criptografa o JSON
-    encrypted_data = cipher_suite.encrypt(data.encode())
-    encrypted_length = f"{len(encrypted_data):<10}"
-    print("menssagem encriptografada enviada", encrypted_data)
-    # Envia o comprimento seguido dos dados criptografados
-    socket.sendall(encrypted_length.encode() + encrypted_data)
+def print_message_list(message_list):
+    for mess in message_list:
+        print(mess)
 
 
-def envioServer():
-    global User, Pass, IP, PORTA
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.connect((IP, PORTA))
-            data = json.dumps({"flag": 0, "User": User, "Pass": Pass})
-            print("Enviando JSON criptografado para o servidor:", data)  # Debug
-            enviar_dados_criptografados(data, s)
-
-            # Recebe a resposta completa do servidor e descriptografa
-            resposta = recv_full_data(s)
-            print("Resposta encriptografada Recebida", resposta)
-            resposta = cipher_suite.decrypt(
-                resposta).decode()  # Descriptografa a resposta
-            print("Resposta recebida do servidor:", resposta)  # Debug
-            resultado = json.loads(resposta)
-
-            # Processa o resultado
-            if resultado == 0:
-                messagebox.showerror("Erro", "A senha digitada está errada")
-            elif resultado == 1:
-                messagebox.showinfo(
-                    "Informação", "Não foi possível encontrar um usuário")
-            elif isinstance(resultado, dict):  # JSON recebido
-                salvar_json(User, resultado)
-                exibir_dados(resultado)
-
-        except json.JSONDecodeError as e:
-            print("Erro ao decodificar JSON recebido:", e)
-            messagebox.showerror(
-                "Erro de Conexão", f"Erro ao decodificar resposta JSON: {e}")
-        except Exception as e:
-            # Sugestão de Teste
-            print("Erro ao conectar ou receber dados do servidor:", e)
-            messagebox.showerror(
-                "Erro de Conexão", f"Não foi possível conectar ao servidor: {e}")
+def print_div():
+    print('---------------------------------------')
 
 
-def criarUsuario():
-    """Função para criar um novo usuário"""
-    global User, Pass, IP, PORTA
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        try:
-            s.connect((IP, PORTA))
-            data = json.dumps({"flag": 3, "User": User, "Pass": Pass})
-            print("Enviando JSON para criação de usuário criptografado:", data)  # Debug
-            enviar_dados_criptografados(data, s)
-
-            # Recebe a resposta do servidor e descriptografa
-            resposta = recv_full_data(s)
-            print("Resposta encriptografada Recebida", resposta)
-            resposta = cipher_suite.decrypt(resposta).decode()
-            print("Resposta recebida do servidor:", resposta)  # Debug
-            resultado = json.loads(resposta)
-
-            # Processa o resultado
-            if resultado == 0:
-                messagebox.showerror("Erro", "Usuário inválido")
-            elif resultado == 1:
-                messagebox.showinfo("Sucesso", "Usuário criado com sucesso!")
-            elif resultado == 3:
-                messagebox.showinfo("Erro", "Usuário já existe")
-
-        except json.JSONDecodeError as e:
-            print("Erro ao decodificar JSON recebido:", e)
-            messagebox.showerror(
-                "Erro de Conexão", f"Erro ao decodificar resposta JSON: {e}")
-        except Exception as e:
-            # Sugestão de Teste
-            print("Erro ao conectar ou receber dados do servidor:", e)
-            messagebox.showerror(
-                "Erro de Conexão", f"Não foi possível conectar ao servidor: {e}")
+def end_if_error(response):
+    if response_is_error(response):
+        print_div()
+        print('An Error occured')
+        print(response)
+        print('Exiting...')
+        exit(1)
 
 
-def salvar_json(nome_arquivo, dados_json):
-    """Salva o JSON recebido no diretório raiz com o nome do usuário."""
-    with open(f"{nome_arquivo}.json", "w") as file:
-        json.dump(dados_json, file)
-
-
-def exibir_dados(dados_json):
-    """Atualiza a interface para mostrar os emails em formato personalizado."""
-    # Limpa a janela
-    for widget in root.winfo_children():
-        widget.destroy()
-
-    # Label para indicar a seção de emails
-    tk.Label(root, text="Emails (não editável)").pack()
-
-    # Caixa de texto para exibir os emails em formato personalizado
-    json_text = tk.Text(root, height=15, width=50)
-
-    # Formatação personalizada dos emails
-    if "Email" in dados_json:
-        for email in dados_json["Email"]:
-            remetente = email.get("id", "Desconhecido")
-            mensagem = email.get("Mensagem", "")
-            json_text.insert(tk.END, f"Remetente: {remetente}\n")
-            json_text.insert(tk.END, f"Mensagem: {mensagem}\n")
-            json_text.insert(tk.END, "-" * 30 + "\n\n")
-
-    # Configura a caixa de texto para não ser editável
-    json_text.config(state="disabled")
-    json_text.pack()
-
-    # Caixa de texto editável para envio de email
-    email_entry = tk.Text(root, height=5, width=50)
-    email_entry.pack()
-
-    # Botão para enviar o email
-    tk.Button(root, text="SendEmail",
-              command=lambda: send_email(email_entry)).pack()
-
-    # Botão para atualizar o email
-    tk.Button(root, text="Atualizar Email", command=envioServer).pack()
-
-
-def send_email(email_entry):
-    """Função chamada pelo botão SendEmail para enviar o conteúdo do email."""
-    conteudo_email = email_entry.get("1.0", tk.END).strip()
-
-    if conteudo_email:
-        # Janela para inserir o destinatário
-        destinatario_window = tk.Toplevel(root)
-        destinatario_window.title("Enviar Email")
-
-        tk.Label(destinatario_window,
-                 text="Digite o nickname do destinatário:").pack()
-        destinatario_entry = tk.Entry(destinatario_window)
-        destinatario_entry.pack()
-
-        def enviar_para_destinatario():
-            destinatario = destinatario_entry.get().strip()
-            if not destinatario:
-                messagebox.showerror(
-                    "Erro", "Por favor, insira um destinatário.")
-                return
-
-            # Envia os dados de email via socket TCP
-            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                try:
-                    s.connect((IP, PORTA))
-                    data = json.dumps({
-                        "flag": 1,
-                        "User": User,
-                        "destinatario": destinatario,
-                        "conteudo_email": conteudo_email
-                    })
-                    # Debug
-                    print("Enviando JSON criptografado para o servidor:", data)
-                    enviar_dados_criptografados(data, s)
-
-                    # Recebe a resposta do servidor e descriptografa
-                    resposta = recv_full_data(s)
-                    print("Resposta encriptografada Recebida", resposta)
-                    resposta = cipher_suite.decrypt(
-                        resposta).decode()  # Descriptografa a resposta
-                    print("Resposta recebida do servidor:", resposta)  # Debug
-                    resultado = json.loads(resposta)
-
-                    if resultado == 0:
-                        messagebox.showerror(
-                            "Erro", "Nickname do destinatário não encontrado.")
-                    elif resultado == 1:
-                        messagebox.showinfo(
-                            "Sucesso", "Email enviado com sucesso!")
-
-                    destinatario_window.destroy()
-                except json.JSONDecodeError as e:
-                    print("Erro ao decodificar JSON recebido:", e)
-                    messagebox.showerror(
-                        "Erro de Conexão", f"Erro ao decodificar resposta JSON: {e}")
-                except Exception as e:
-                    # Sugestão de Teste
-                    print("Erro ao conectar ou receber dados do servidor:", e)
-                    messagebox.showerror(
-                        "Erro de Conexão", f"Não foi possível conectar ao servidor: {e}")
-
-        tk.Button(destinatario_window, text="Enviar",
-                  command=enviar_para_destinatario).pack()
-    else:
-        messagebox.showerror(
-            "Erro", "O conteúdo do email não pode estar vazio.")
-
-
-def enviar():
-    """Função de envio quando o botão 'Enviar' é clicado"""
-    global User, Pass, IP, PORTA
-    User = nickname_entry.get()
-    Pass = password_entry.get()
-    IP = ip_entry.get()
-    PORTA = int(porta_entry.get())
-    envioServer()
-
-
-# Interface gráfica
-root = tk.Tk()
-root.title("Login")
-
-# Campos para usuário e senha
-tk.Label(root, text="Nickname").pack()
-nickname_entry = tk.Entry(root)
-nickname_entry.pack()
-
-tk.Label(root, text="Password").pack()
-password_entry = tk.Entry(root, show="*")
-password_entry.pack()
-
-# Campos para IP e Porta
-tk.Label(root, text="IP").pack()
-ip_entry = tk.Entry(root)
-ip_entry.pack()
-
-tk.Label(root, text="Porta").pack()
-porta_entry = tk.Entry(root)
-porta_entry.pack()
-
-# Botões para iniciar a comunicação e criar usuário
-tk.Button(root, text="Enviar", command=enviar).pack()
-tk.Button(root, text="Criar Usuário", command=criarUsuario).pack()
-
-root.mainloop()
+if __name__ == '__main__':
+    print_div()
+    server_info = prompt_for_connection()
+    print('Connected to server.')
+    print_div()
+    print('1 - Create user')
+    print('2 - Login')
+    option = input()
+    if option == '1':
+        print_div()
+        print('Creating User...')
+        print('Type the user:')
+        user = input()
+        print('Type the password:')
+        password = input()
+        response = send_creation_request({'User': user, 'Pass': password},
+                                         server_info)
+        end_if_error(response)
+    elif option != '2':
+        print(f'Option: {option} is not supported. Exiting...')
+        exit(1)
+    print_div()
+    logged_user = prompt_login()
+    response = send_login_request(logged_user, server_info)
+    end_if_error(response)
+    print('Login successful. Press Ctrl+C to exit at any moment.')
+    while True:
+        print_div()
+        response = send_message_list_request(server_info)
+        print("This is the message list:")
+        print_message_list(response['success'])
+        print("Send a message? (y/n)")
+        print("'n' updates the message list")
+        answer = input()
+        print_div()
+        if answer == 'n':
+            continue
+        print('Type the reciepient:')
+        recipient = input()
+        print('Type the message:')
+        message = input()
+        response = send_message_request(recipient, message,
+                                        logged_user, server_info)
+        end_if_error(response)
+        print(response)
