@@ -67,7 +67,7 @@ def process_request_flag_1(request: dict) -> dict:
     """
     global logged_user
     if not logged_user:
-        return {"error": "usuario não está logado"}
+        return {"error": "usuario nao esta logado"}
     remetente = logged_user.get("User")
     destinatario = request.get("Destinatario")
     conteudo_email = request.get("Mensagem")
@@ -86,7 +86,7 @@ def process_request_flag_1(request: dict) -> dict:
         destinatario_data["Email"] = [nova_mensagem]
     with destinatario_file.open('w') as file:
         json.dump(destinatario_data, file, indent=4)
-    return {"success": "Messagem enviada com sucesso"}
+    return {"success": "mensagem enviada com sucesso"}
 
 
 def process_request_flag_2(request: dict) -> dict:
@@ -105,7 +105,7 @@ def process_request_flag_2(request: dict) -> dict:
     """
     global logged_user
     if not logged_user:
-        return {"error": "usuario não esta logado"}
+        return {"error": "usuario nao esta logado"}
     user_file = Path("id", f"{logged_user.get('User')}.json")
     with user_file.open("r") as file:
         user_data = json.load(file)

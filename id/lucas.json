@@ -1,1 +1,10 @@
-{"User": "lucas", "Pass": "123"}
+{
+    "User": "lucas",
+    "Pass": "123",
+    "Email": [
+        {
+            "id": "daniel",
+            "Mensagem": "teste"
+        }
+    ]
+}
