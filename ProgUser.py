@@ -9,11 +9,32 @@ cipher_suite = Fernet(KEY)
 MESSAGE_LENGTH_HEADER = 10
 
 
-def response_is_error(response):
+def response_is_error(response: dict) -> bool:
+    """
+    Checks if a response is an error response
+
+    Parameters
+    ----------
+    response : dict
+        The response to check
+
+    Returns
+    -------
+    bool
+        True if the response is an error response, False otherwise
+    """
     return 'error' in response
 
 
-def prompt_for_connection():
+def prompt_for_connection() -> tuple:
+    """
+    Prompts the user for the server IP and port
+
+    Returns
+    -------
+    tuple
+        A tuple containing the server IP and port
+    """
     print('Type the server IP:')
     server_ip = input()
     print('Type the server port:')
@@ -21,7 +42,15 @@ def prompt_for_connection():
     return server_ip, server_port
 
 
-def prompt_login():
+def prompt_login() -> dict:
+    """
+    Prompts the user for the login information
+
+    Returns
+    -------
+    dict
+        A dictionary containing the user and password
+    """
     print('Type the user:')
     user = input()
     print('Type the password:')
@@ -32,7 +61,22 @@ def prompt_login():
     }
 
 
-def send_login_request(user: dict, server_info: tuple):
+def send_login_request(user: dict, server_info: tuple) -> dict:
+    """
+    Sends a login request to the server
+
+    Parameters
+    ----------
+    user : dict
+        A dictionary containing the user and password
+    server_info : tuple
+        A tuple containing the server IP and port
+
+    Returns
+    -------
+    dict
+        The response from the server
+    """
     request = {
         'Flag': 0,
         'User': user['User'],
@@ -41,7 +85,22 @@ def send_login_request(user: dict, server_info: tuple):
     return send_request(request, server_info)
 
 
-def send_creation_request(user: dict, server_info: tuple):
+def send_creation_request(user: dict, server_info: tuple) -> dict:
+    """
+    Sends a user creation request to the server
+
+    Parameters
+    ----------
+    user : dict
+        A dictionary containing the user and password
+    server_info : tuple
+        A tuple containing the server IP and port
+
+    Returns
+    -------
+    dict
+        The response from the server
+    """
     request = {
         'Flag': 3,
         'User': user['User'],
@@ -50,7 +109,20 @@ def send_creation_request(user: dict, server_info: tuple):
     return send_request(request, server_info)
 
 
-def send_message_list_request(server_info: tuple):
+def send_message_list_request(server_info: tuple) -> dict:
+    """
+    Sends a message list request to the server
+
+    Parameters
+    ----------
+    server_info : tuple
+        A tuple containing the server IP and port
+
+    Returns
+    -------
+    dict
+        The response from the server
+    """
     request = {
         'Flag': 2,
     }
@@ -58,7 +130,26 @@ def send_message_list_request(server_info: tuple):
 
 
 def send_message_request(recipient: str, message: str,
-                         logged_user: dict, server_info: tuple):
+                         logged_user: dict, server_info: tuple) -> dict:
+    """
+    Sends a message to a recipient.
+
+    Parameters
+    ----------
+    recipient : str
+        User that will receive the message
+    message : str
+        The message's body
+    logged_user : dict
+        The user that is sending the message
+    server_info : tuple
+        A tuple containing the server IP and port
+
+    Returns
+    -------
+    dict
+        The response from the server
+    """
     request = {
         'Flag': 1,
         'User': logged_user['User'],
@@ -69,11 +160,44 @@ def send_message_request(recipient: str, message: str,
 
 
 def read_message_length(sock: socket.socket) -> int:
+    """
+    Reads the message length from the socket
+
+    Parameters
+    ----------
+    sock : socket.socket
+        The socket to read from
+
+    Returns
+    -------
+    int
+        The message length
+    """
     message_length = int(sock.recv(MESSAGE_LENGTH_HEADER).decode().strip())
     return message_length
 
 
 def send_request(request: dict, server_info: tuple) -> dict:
+    """
+    Sends a request to the server
+
+    Parameters
+    ----------
+    request : dict
+        The request to sent
+    server_info : tuple
+        A tuple containing the server IP and port
+
+    Returns
+    -------
+    dict
+        The response from the server
+
+    Raises
+    ------
+    e
+        ValueError if an error occurs
+    """
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect(server_info)
@@ -109,16 +233,37 @@ def send_request(request: dict, server_info: tuple) -> dict:
         raise e
 
 
-def print_message_list(message_list):
+def print_message_list(message_list: list):
+    """
+    Prints a message list
+
+    Parameters
+    ----------
+    message_list : list
+        The message list to print
+    """
     for mess in message_list:
         print(mess)
 
 
 def print_div():
-    print('---------------------------------------')
+    """
+    Prints a division line
+    """
+    print('---------------------------------------'
+          '---------------------------------------'
+          '---------------------------------------')
 
 
-def end_if_error(response):
+def end_if_error(response: dict):
+    """
+    Ends the program if the response is an error
+
+    Parameters
+    ----------
+    response : dict
+        The response to check
+    """
     if response_is_error(response):
         print_div()
         print('An Error occured')

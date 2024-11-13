@@ -155,6 +155,19 @@ def process_request_flag_3(request: dict) -> dict:
 
 
 def get_request(conn: socket) -> dict:
+    """
+    Listens to a new request and decypts it.
+
+    Parameters
+    ----------
+    conn : socket
+        Socket to listen to
+
+    Returns
+    -------
+    dict
+        The new request
+    """
     encrypted_length = int(conn.recv(MESSAGE_LENGTH_HEADER).decode().strip())
     encrypted_data = conn.recv(encrypted_length)
     print(f'Encypted request received: {encrypted_data}')
@@ -166,6 +179,16 @@ def get_request(conn: socket) -> dict:
 
 
 def send_response(conn: socket, response: dict):
+    """
+    Encrypts a response and sends it through the socket
+
+    Parameters
+    ----------
+    conn : socket
+        Socket to send the response
+    response : dict
+        The response to send
+    """
     # Serializa a resposta e criptografa antes de enviar
     response_data = json.dumps(response)
     print(f'Response to be sent: {response_data}')
@@ -187,16 +210,15 @@ REQUEST_HANDLERS = {
 }
 
 
-def start_server():
-    parser = ArgumentParser()
-    parser.add_argument('--host', default='127.0.0.1', type=str)
-    parser.add_argument('--port', default=5000, type=int)
-    args = parser.parse_args()
+def start_server(host, port):
+    """
+    Runs the main server loop
+    """
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-        server_socket.bind((args.host, args.port))
+        server_socket.bind((host, port))
         server_socket.listen()
-        print('Listening on', (args.host, args.port))
+        print('Listening on', (host, port))
 
         while True:
             conn, _ = server_socket.accept()
@@ -222,4 +244,8 @@ def start_server():
 
 
 if __name__ == "__main__":
-    start_server()
+    parser = ArgumentParser()
+    parser.add_argument('--host', default='127.0.0.1', type=str)
+    parser.add_argument('--port', default=5000, type=int)
+    args = parser.parse_args()
+    start_server(args.host, args.port)
