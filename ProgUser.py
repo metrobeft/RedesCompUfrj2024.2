@@ -78,7 +78,7 @@ def send_login_request(user: dict, server_info: tuple) -> dict:
         The response from the server
     """
     request = {
-        'Flag': 0,
+        'flag': 0,
         'User': user['User'],
         'Pass': user['Pass'],
     }
@@ -102,7 +102,7 @@ def send_creation_request(user: dict, server_info: tuple) -> dict:
         The response from the server
     """
     request = {
-        'Flag': 3,
+        'flag': 3,
         'User': user['User'],
         'Pass': user['Pass'],
     }
@@ -124,7 +124,7 @@ def send_message_list_request(server_info: tuple) -> dict:
         The response from the server
     """
     request = {
-        'Flag': 2,
+        'flag': 2,
     }
     return send_request(request, server_info)
 
@@ -151,7 +151,7 @@ def send_message_request(recipient: str, message: str,
         The response from the server
     """
     request = {
-        'Flag': 1,
+        'flag': 1,
         'User': logged_user['User'],
         'Destinatario': recipient,
         'Mensagem': message,

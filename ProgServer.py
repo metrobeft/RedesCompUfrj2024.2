@@ -68,9 +68,9 @@ def process_request_flag_1(request: dict) -> dict:
     global logged_user
     if not logged_user:
         return {"error": "usuario nao esta logado"}
-    remetente = logged_user.get("User")
-    destinatario = request.get("Destinatario")
-    conteudo_email = request.get("Mensagem")
+    remetente = request.get("User")
+    destinatario = request.get("destinatario")
+    conteudo_email = request.get("conteudo_email")
     destinatario_file = Path("id", f"{destinatario}.json")
     if not destinatario_file.exists():
         return {"error": "destinatario nao existe"}
@@ -225,8 +225,8 @@ def start_server(host, port):
             with conn:
                 try:
                     request = get_request(conn)
-                    flag = request.get("Flag")
-                    print(flag)
+                    flag = request.get("flag")
+                    print(f'Flag: {flag}')
                     response = REQUEST_HANDLERS[flag](request)
                     send_response(conn, response)
                 except KeyError:
